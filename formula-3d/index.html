@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>html{color-scheme:dark}body{margin:0}img{max-width:100%}</style>
+<title>Голова из формулы</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;500&family=Golos+Text:wght@400;500&display=swap">
+<style>
+  :root{--ink:#000205;--dust:#d6e4ff;--dust-dim:#93a8ce;--dust-mute:#5d6c8c;--accent:#86b4ff;--hair:rgba(150,178,232,.16)}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100svh;background:var(--ink);color:var(--dust);font-family:"Golos Text","Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+  .stage{position:relative;width:100vw;height:100svh;overflow:hidden;background:#000}
+  canvas#gl{position:absolute;inset:0;width:100%;height:100%;display:block;opacity:0;transition:opacity 1.4s ease}
+  canvas#gl.on{opacity:1}
+  .veil{position:absolute;inset:0;display:grid;place-content:center;gap:14px;justify-items:center;background:#000;transition:opacity .8s ease;z-index:5}
+  .veil.off{opacity:0;pointer-events:none}
+  .veil__label{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--dust-mute)}
+  .veil__bar{width:190px;height:1px;background:var(--hair);overflow:hidden}
+  .veil__bar i{display:block;height:100%;width:0%;background:var(--accent);transition:width .2s linear}
+  .lockup{position:absolute;top:clamp(18px,3.2vw,38px);left:clamp(18px,3.2vw,38px);max-width:min(30ch,58vw);z-index:3;pointer-events:none}
+  .lockup .eyebrow{font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--dust-mute);margin:0 0 12px}
+  .lockup h1{font-family:"Unbounded","Golos Text",sans-serif;font-weight:300;font-size:clamp(18px,2.3vw,28px);line-height:1.2;letter-spacing:-.01em;margin:0;color:#eaf1ff;text-wrap:balance}
+  .lockup h1 b{font-weight:500;color:#fff;font-variant-numeric:tabular-nums}
+  .lockup p{margin:13px 0 0;font-size:13px;line-height:1.55;color:var(--dust-dim);max-width:34ch}
+  .panel{position:absolute;right:clamp(14px,2.6vw,32px);bottom:clamp(14px,2.6vw,32px);z-index:4;display:grid;gap:11px;width:242px;padding:16px 16px 14px;background:rgba(4,8,16,.60);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--hair)}
+  .panel h2{margin:0 0 3px;font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--dust-mute);font-weight:500}
+  .row{display:grid;grid-template-columns:74px 1fr 40px;align-items:center;gap:10px}
+  .row label{font-size:12px;color:var(--dust-dim)}
+  .row output{font-size:11px;color:var(--dust);text-align:right;font-variant-numeric:tabular-nums}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:14px;background:transparent;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--hair)}
+  input[type=range]::-moz-range-track{height:1px;background:var(--hair)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;height:9px;margin-top:-4px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(134,180,255,.8)}
+  input[type=range]::-moz-range-thumb{width:9px;height:9px;border:0;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(134,180,255,.8)}
+  input[type=range]:focus-visible{outline:1px solid var(--accent);outline-offset:4px}
+  .tgl{width:100%;height:14px;padding:0;border:0;background:transparent;cursor:pointer;display:flex;align-items:center}
+  .tgl i{display:block;width:30px;height:14px;border:1px solid var(--hair);border-radius:999px;position:relative;transition:border-color .2s}
+  .tgl i::after{content:"";position:absolute;top:2px;left:2px;width:8px;height:8px;border-radius:50%;background:var(--dust-mute);transition:transform .22s ease,background .22s}
+  .tgl[aria-checked="true"] i{border-color:rgba(134,180,255,.55)}
+  .tgl[aria-checked="true"] i::after{transform:translateX(16px);background:var(--accent);box-shadow:0 0 8px rgba(134,180,255,.85)}
+  .tgl:focus-visible{outline:1px solid var(--accent);outline-offset:4px}
+  .note{margin:2px 0 0;font-size:11px;line-height:1.5;color:var(--dust-mute)}
+  .hint{position:absolute;left:50%;bottom:clamp(14px,2.6vw,30px);transform:translateX(-50%);z-index:3;font-size:11px;letter-spacing:.06em;color:var(--dust-mute);pointer-events:none;transition:opacity .5s}
+  .hint.off{opacity:0}
+  @media (max-width:760px){.lockup p{display:none}.panel{width:auto;left:clamp(14px,3vw,32px)}.hint{display:none}}
+</style>
+
+<div class="stage">
+  <canvas id="gl"></canvas>
+  <div class="veil" id="veil">
+    <div class="veil__label">Считаем голову формулой</div>
+    <div class="veil__bar"><i id="bar"></i></div>
+  </div>
+  <header class="lockup">
+    <p class="eyebrow">Бесконечная петля · 3D</p>
+    <h1>Голова из <b id="cnt">0</b> точек, посчитанная формулой</h1>
+    <p>Ни одного пикселя и ни одного файла извне: череп, скулы, нос, губы, веки заданы математикой, точки садятся на эту поверхность лучами. Разворот честный, трёхмерный — до профиля и обратно.</p>
+  </header>
+  <p class="hint" id="hint">Потяните мышью — голова послушается</p>
+  <section class="panel" aria-label="Управление сценой">
+    <h2>Сцена</h2>
+    <div class="row"><label for="amp">Разворот</label><input id="amp" type="range" min="0" max="200" step="5" value="100"><output id="ampv">1,0×</output></div>
+    <div class="row"><label for="den">Плотность</label><input id="den" type="range" min="25" max="100" step="5" value="100"><output id="denv">100%</output></div>
+    <div class="row"><label for="wnd">Пыль</label><button id="wnd" class="tgl" role="switch" aria-checked="true"><i></i></button><output id="wndv">вкл</output></div>
+    <p class="note" id="fps">—</p>
+  </section>
+</div>
+
+<script>
+/* ═══════════ Форма головы: знаковое поле расстояний ═══════════
+   Ось Y — вверх, +Z — вперёд (лицо). Подбородок y=-0.50, темя y=+0.50. */
+/* ═══════════ Форма головы: знаковое поле расстояний ═══════════
+   Ось Y — вверх, +Z — вперёд (лицо). Подбородок y=-0.50, темя y=+0.50. */
+var HEAD = (function () {
+"use strict";
+
+function smin(a, b, k) { var h = Math.max(0, Math.min(1, 0.5 + 0.5 * (b - a) / k)); return b * (1 - h) + a * h - k * h * (1 - h); }
+function smax(a, b, k) { return -smin(-a, -b, k); }
+
+function ell(x, y, z, cx, cy, cz, rx, ry, rz) {
+  var ax = (x - cx) / rx, ay = (y - cy) / ry, az = (z - cz) / rz;
+  var k0 = Math.sqrt(ax * ax + ay * ay + az * az);
+  if (k0 === 0) return -Math.min(rx, ry, rz);
+  var bx = ax / rx, by = ay / ry, bz = az / rz;
+  var k1 = Math.sqrt(bx * bx + by * by + bz * bz);
+  return k0 * (k0 - 1) / k1;
+}
+function cap(x, y, z, ax, ay, az, bx, by, bz, r) {
+  var px = x - ax, py = y - ay, pz = z - az;
+  var dx = bx - ax, dy = by - ay, dz = bz - az;
+  var t = (px * dx + py * dy + pz * dz) / (dx * dx + dy * dy + dz * dz);
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  var qx = px - dx * t, qy = py - dy * t, qz = pz - dz * t;
+  return Math.sqrt(qx * qx + qy * qy + qz * qz) - r;
+}
+
+function map(x, y, z) {
+  var ax = Math.abs(x);
+
+  var d = ell(x, y, z, 0, 0.132, -0.035, 0.306, 0.310, 0.330);            // черепная коробка
+  d = smin(d, ell(x, y, z, 0, 0.020, 0.005, 0.292, 0.200, 0.326), 0.10);  // виски и орбиты
+  d = smin(d, ell(ax, y, z, 0.168, -0.030, 0.176, 0.120, 0.100, 0.130), 0.12); // скулы
+  d = smin(d, ell(x, y, z, 0, -0.148, 0.092, 0.212, 0.132, 0.266), 0.12); // средняя треть
+  d = smin(d, ell(x, y, z, 0, -0.272, 0.018, 0.216, 0.124, 0.244), 0.13); // челюсть
+  d = smin(d, ell(ax, y, z, 0.178, -0.256, -0.045, 0.032, 0.068, 0.108), 0.11); // углы челюсти
+  d = smin(d, ell(x, y, z, 0, -0.376, 0.202, 0.092, 0.068, 0.112), 0.11); // подбородок
+  d = smin(d, ell(x, y, z, 0, 0.086, 0.276, 0.178, 0.028, 0.050), 0.09);  // надбровье
+
+  d = smin(d, cap(x, y, z, 0, 0.068, 0.288, 0, -0.100, 0.382, 0.022), 0.045);   // спинка носа
+  d = smin(d, cap(x, y, z, 0, -0.092, 0.378, 0, -0.128, 0.404, 0.028), 0.035);  // кончик
+  d = smin(d, ell(x, y, z, 0, -0.136, 0.408, 0.035, 0.029, 0.041), 0.030);
+  d = smin(d, ell(ax, y, z, 0.045, -0.158, 0.370, 0.029, 0.024, 0.035), 0.030); // крылья носа
+
+  d = smin(d, ell(x, y, z, 0, -0.268, 0.215, 0.152, 0.096, 0.120), 0.10);  // зубная дуга
+  d = smin(d, ell(x, y, z, 0, -0.242, 0.306, 0.073, 0.026, 0.050), 0.026); // верхняя губа
+  d = smin(d, ell(x, y, z, 0, -0.288, 0.306, 0.067, 0.032, 0.052), 0.026); // нижняя губа
+
+  d = smin(d, ell(ax, y, z, 0.118, 0.014, 0.262, 0.080, 0.024, 0.050), 0.030); // закрытые веки
+  d = smin(d, ell(ax, y, z, 0.302, -0.045, -0.050, 0.026, 0.088, 0.058), 0.040); // уши
+
+  d = smin(d, cap(x, y, z, 0, -0.368, -0.020, 0, -0.860, -0.085, 0.150), 0.13); // шея
+  d = smin(d, ell(x, y, z, 0, -1.020, -0.060, 0.720, 0.300, 0.300), 0.22);      // плечи
+
+  d = smin(d, ell(x, y, z, 0, 0.150, -0.060, 0.318, 0.320, 0.342), 0.05);  // волосы
+  d = smin(d, ell(x, y, z, 0, 0.075, -0.372, 0.152, 0.155, 0.125), 0.09);  // пучок
+
+  // вычитаем: глазницы, складка века, щель рта, подгубная борозда, ноздри
+  d = smax(d, -ell(ax, y, z, 0.116, 0.018, 0.262, 0.092, 0.044, 0.068), 0.045);
+  d = smax(d, -ell(ax, y, z, 0.116, 0.040, 0.272, 0.076, 0.008, 0.044), 0.020);
+  d = smax(d, -ell(x, y, z, 0, -0.265, 0.318, 0.064, 0.004, 0.032), 0.010);
+  d = smax(d, -ell(x, y, z, 0, -0.336, 0.288, 0.098, 0.013, 0.030), 0.040);
+  d = smax(d, -ell(ax, y, z, 0.042, -0.168, 0.380, 0.017, 0.014, 0.036), 0.018);
+  return d;
+}
+
+/* 0 — кожа, 1 — волосы, 2 — веки (светятся), 3 — тень, 4 — бровь, 5 — область глаза */
+function classify(x, y, z) {
+  var ax = Math.abs(x);
+  var ex = (ax - 0.118) / 0.084, ey = (y - 0.014) / 0.020, ez = (z - 0.262) / 0.058;
+  if (z > 0.16 && ex * ex + ey * ey + ez * ez < 1) return 2;                 // веко
+  var lx = x / 0.074, ly = (y + 0.265) / 0.034, lz = (z - 0.316) / 0.050;
+  if (z > 0.22 && lx * lx + ly * ly + lz * lz < 1) return 3;                 // губы
+  var nx = (ax - 0.042) / 0.023, ny = (y + 0.178) / 0.021;
+  if (z > 0.33 && nx * nx + ny * ny < 1) return 3;                           // ноздри
+  var arc = 0.073 + 0.85 * ax * ax;
+  if (z > 0.20 && ax > 0.040 && ax < 0.188 && y > arc && y < arc + 0.026) return 4;
+  var gx = (ax - 0.116) / 0.125, gy = (y - 0.014) / 0.075, gz = (z - 0.235) / 0.125;
+  if (z > 0.08 && gx * gx + gy * gy + gz * gz < 1) return 5;                 // веко ловит свет
+  var line = 0.276 - 0.30 * ax + 0.020 * Math.cos(x * 12);
+  if (z > -0.02 ? y > line : y > -0.30) return 1;
+  return 0;
+}
+
+var EPS = 0.0020;
+function normalAt(x, y, z, out) {
+  var nx = map(x + EPS, y, z) - map(x - EPS, y, z);
+  var ny = map(x, y + EPS, z) - map(x, y - EPS, z);
+  var nz = map(x, y, z + EPS) - map(x, y, z - EPS);
+  var l = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+  out[0] = nx / l; out[1] = ny / l; out[2] = nz / l;
+}
+function trace(ox, oy, oz, dx, dy, dz) {
+  var t = 0;
+  for (var i = 0; i < 96; i++) {
+    var d = map(ox + dx * t, oy + dy * t, oz + dz * t);
+    if (d < 0.0008) return t;
+    t += Math.max(d * 0.85, 0.0022);
+    if (t > 3.6) break;
+  }
+  return -1;
+}
+
+/* Лучи из окружающей сферы садятся на поверхность — получается решётка из точек. */
+function sample(rings, rows, sink) {
+  var n3 = [0, 0, 0], i, j;
+  for (i = 0; i < rings; i++) {
+    var th = Math.PI * (i + 0.5) / rings, st = Math.sin(th), ct = Math.cos(th);
+    var count = Math.max(8, Math.round(2.1 * rings * st));
+    for (j = 0; j < count; j++) {
+      var ph = 2 * Math.PI * (j + (i & 1) * 0.5) / count;
+      var dx = st * Math.sin(ph), dy = ct, dz = st * Math.cos(ph), R = 2.4;
+      var t = trace(dx * R, dy * R, dz * R, -dx, -dy, -dz);
+      if (t < 0) continue;
+      var x = dx * (R - t), y = dy * (R - t), z = dz * (R - t);
+      normalAt(x, y, z, n3); sink(x, y, z, n3);
+    }
+  }
+  for (i = 0; i < rows; i++) {                       // шея и плечи — винтовая раскладка
+    var yy = -0.36 - i * 0.0080, COLS = 132;
+    for (j = 0; j < COLS; j++) {
+      var p2 = 2 * Math.PI * (j / COLS + i * 0.31);
+      var ex = Math.sin(p2), ez = Math.cos(p2), R2 = 1.7;
+      var t2 = trace(ex * R2, yy, ez * R2, -ex, 0, -ez);
+      if (t2 < 0) continue;
+      var x2 = ex * (R2 - t2), z2 = ez * (R2 - t2);
+      normalAt(x2, yy, z2, n3); sink(x2, yy, z2, n3);
+    }
+  }
+}
+
+return { map: map, classify: classify, normalAt: normalAt, trace: trace, sample: sample };
+})();
+if (typeof module !== "undefined") module.exports = HEAD;
+
+</script>
+<script>
+(() => {
+"use strict";
+
+const cv = document.getElementById("gl");
+const gl = cv.getContext("webgl", { antialias: false, alpha: false, depth: false, powerPreference: "high-performance" });
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const veil = document.getElementById("veil"), bar = document.getElementById("bar"), cnt = document.getElementById("cnt");
+
+/* ═════════════ шейдеры ═════════════ */
+function sh(t, src) {
+  const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+function prog(vs, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, vs)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const o = { p, u: {}, a: {} };
+  for (let i = 0, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); i < n; i++) {
+    const nm = gl.getActiveUniform(p, i).name.replace("[0]", ""); o.u[nm] = gl.getUniformLocation(p, nm);
+  }
+  for (let i = 0, n = gl.getProgramParameter(p, gl.ACTIVE_ATTRIBUTES); i < n; i++) {
+    const nm = gl.getActiveAttrib(p, i).name; o.a[nm] = gl.getAttribLocation(p, nm);
+  }
+  return o;
+}
+const ROT = `
+vec3 rot3(vec3 v, vec3 a){
+  float cy=cos(a.x), sy=sin(a.x), cx=cos(a.y), sx=sin(a.y), cz=cos(a.z), sz=sin(a.z);
+  v = vec3(v.x*cz - v.y*sz, v.x*sz + v.y*cz, v.z);
+  v = vec3(v.x, v.y*cx - v.z*sx, v.y*sx + v.z*cx);
+  v = vec3(v.x*cy + v.z*sy, v.y, -v.x*sy + v.z*cy);
+  return v;
+}`;
+
+const HEAD_VS = `
+precision highp float;
+attribute vec3 aPos;
+attribute vec3 aNor;
+attribute float aReg;     // 0 кожа, 1 волосы, 2 веки, 3 тень, 4 бровь, 5 область глаза
+attribute float aSeed;
+uniform vec3 uPivot, uCam;
+uniform mat4 uVP;
+uniform vec3 uAng;
+uniform float uTime, uScale, uCut, uLoop, uNeck;
+varying vec3 vCol;
+varying float vB;
+${ROT}
+void main(){
+  if (aSeed > uCut) { gl_Position = vec4(2.0); gl_PointSize = 0.0; vB = 0.0; vCol = vec3(0.0); return; }
+  vec3 p0 = aPos;
+  float reg = aReg;
+
+  float w = smoothstep(uNeck - 0.32, uNeck, p0.y);        // плечи стоят, голова вертится
+  vec3 ang = uAng * w;
+  vec3 n = rot3(aNor, ang);
+  vec3 p = rot3(p0 - uPivot, ang) + uPivot;
+
+  float shim = sin(uTime*1.7 + aSeed*61.0)*0.5 + 0.5;
+  p += n * (0.0016 + 0.006*step(0.5, reg)*(1.0 - step(1.5, reg))) * shim;
+
+  vec4 clip = uVP * vec4(p, 1.0);
+  vec3 vd = normalize(uCam - p);
+  float face = dot(n, vd);
+  float fres = pow(1.0 - abs(face), 4.2);
+  float front = 0.30 + 0.70*smoothstep(-0.35, 0.45, face);
+  float key  = max(dot(n, normalize(vec3(-0.55, 0.50, 0.67))), 0.0);
+  float fill = max(dot(n, normalize(vec3( 0.75, 0.10, 0.65))), 0.0);
+  fill *= fill;
+
+  float b = (0.14 + 0.95*fres + 1.00*key + 0.28*fill) * front;
+  vec3 c = mix(vec3(0.40,0.55,0.90), vec3(0.90,0.96,1.10), clamp(fres + key*0.5, 0.0, 1.0));
+  float size = 1.0 + 1.1*fres;
+
+  if (reg > 0.5 && reg < 1.5){                        // волосы: суше и искристее
+    b = (0.13 + 0.90*fres + 0.90*key) * front * (0.80 + 0.4*fract(aSeed*17.0)) + 0.40*pow(shim, 6.0)*front;
+    c = mix(vec3(0.34,0.48,0.88), vec3(0.86,0.94,1.08), clamp(fres + key*0.4, 0.0, 1.0));
+    size *= 0.94;
+  } else if (reg > 1.5 && reg < 2.5){                 // веки светятся
+    b = (1.9 + 0.35*sin(uTime*6.2831853/uLoop*2.0)) * smoothstep(-0.25, 0.45, face);
+    c = vec3(0.88,0.94,1.12);
+    size = 1.8;
+  } else if (reg > 2.5 && reg < 3.5){                 // губы, ноздри
+    b *= 0.42;
+  } else if (reg > 3.5 && reg < 4.5){                 // бровь
+    b *= 0.50;
+  } else if (reg > 4.5){                              // веко ловит свет
+    b *= 1.45;
+  }
+  vB = b * smoothstep(-1.05, -0.52, p0.y);
+  vCol = c;
+  gl_Position = clip;
+  gl_PointSize = clamp(uScale * size / clip.w, 1.0, 12.0);
+}`;
+
+const DOT_FS = `
+precision mediump float;
+varying vec3 vCol; varying float vB;
+void main(){
+  vec2 d = gl_PointCoord - 0.5;
+  float r2 = dot(d,d) * 4.0;
+  if (r2 > 1.0) discard;
+  float a = exp(-r2 * 3.2) * (1.0 - r2*r2);
+  gl_FragColor = vec4(vCol * vB * a, 1.0);
+}`;
+
+const WISP_VS = `
+precision highp float;
+attribute vec3 aPos, aDir;
+attribute vec2 aMet;
+uniform mat4 uVP;
+uniform vec3 uAng, uPivot;
+uniform float uTime, uScale, uWind;
+varying vec3 vCol; varying float vB;
+${ROT}
+void main(){
+  float seed = aMet.x, rate = aMet.y;
+  float life = fract(uTime*rate + seed);
+  vec3 p = rot3(aPos - uPivot, uAng) + uPivot;
+  vec3 d = rot3(aDir, uAng*0.4);
+  p += d * (life*life*0.6 + life*0.18) * 0.5 * uWind;
+  p += 0.03 * uWind * vec3(sin(life*7.0 + seed*40.0), sin(life*5.4 + seed*23.0), sin(life*6.2 + seed*11.0)) * life;
+  vec4 clip = uVP * vec4(p, 1.0);
+  float fade = smoothstep(0.0, 0.07, life) * pow(1.0 - life, 1.7);
+  vB = fade * (0.7 + 0.5*sin(seed*90.0)) * mix(0.2, 1.0, uWind);
+  vCol = mix(vec3(0.82,0.91,1.15), vec3(0.36,0.52,1.0), life);
+  gl_Position = clip;
+  gl_PointSize = clamp(uScale * (0.7 + life*1.3) / clip.w, 0.9, 8.0);
+}`;
+
+const QUAD_VS = `precision highp float; attribute vec2 aXy; varying vec2 vUv;
+void main(){ vUv = aXy*0.5 + 0.5; gl_Position = vec4(aXy, 0.0, 1.0); }`;
+const BRIGHT_FS = `precision mediump float; uniform sampler2D uTex; uniform vec2 uTexel; uniform float uThresh; varying vec2 vUv;
+void main(){
+  vec3 c = texture2D(uTex, vUv + uTexel*vec2( 0.5, 0.5)).rgb + texture2D(uTex, vUv + uTexel*vec2(-0.5, 0.5)).rgb
+         + texture2D(uTex, vUv + uTexel*vec2( 0.5,-0.5)).rgb + texture2D(uTex, vUv + uTexel*vec2(-0.5,-0.5)).rgb;
+  c *= 0.25;
+  float l = max(max(c.r, c.g), c.b);
+  gl_FragColor = vec4(c * smoothstep(uThresh, uThresh + 0.35, l), 1.0);
+}`;
+const BLUR_FS = `precision mediump float; uniform sampler2D uTex; uniform vec2 uDir; varying vec2 vUv;
+void main(){
+  vec3 s = texture2D(uTex, vUv).rgb * 0.2270;
+  s += (texture2D(uTex, vUv + uDir*1.3846).rgb + texture2D(uTex, vUv - uDir*1.3846).rgb) * 0.3162;
+  s += (texture2D(uTex, vUv + uDir*3.2308).rgb + texture2D(uTex, vUv - uDir*3.2308).rgb) * 0.0702;
+  gl_FragColor = vec4(s, 1.0);
+}`;
+const COMP_FS = `precision mediump float; uniform sampler2D uScene, uB1, uB2; varying vec2 vUv;
+void main(){
+  vec3 c = texture2D(uScene, vUv).rgb + texture2D(uB1, vUv).rgb * 0.42 + texture2D(uB2, vUv).rgb * 0.30;
+  const float K = 1.30;
+  c = (vec3(1.0) - exp(-c * K)) / (1.0 - exp(-K));
+  c = pow(c, vec3(1.05, 1.00, 0.90));
+  vec2 q = vUv - 0.5;
+  c *= 1.0 - 0.32*dot(q,q);
+  c += (fract(sin(dot(vUv, vec2(12.9898,78.233)))*43758.5453) - 0.5) * 0.010;
+  gl_FragColor = vec4(c, 1.0);
+}`;
+
+const pHead = prog(HEAD_VS, DOT_FS);
+const pWisp = prog(WISP_VS, DOT_FS);
+const pBright = prog(QUAD_VS, BRIGHT_FS);
+const pBlur = prog(QUAD_VS, BLUR_FS);
+const pComp = prog(QUAD_VS, COMP_FS);
+
+const quad = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+
+const extHF = gl.getExtension("OES_texture_half_float");
+const extHFL = gl.getExtension("OES_texture_half_float_linear");
+let TEXTYPE = (extHF && extHFL) ? extHF.HALF_FLOAT_OES : gl.UNSIGNED_BYTE;
+
+function mkTarget(w, h) {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, TEXTYPE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  if (TEXTYPE !== gl.UNSIGNED_BYTE && gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+    TEXTYPE = gl.UNSIGNED_BYTE;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, TEXTYPE, null);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { tex, fb, w, h };
+}
+let T = null, W = 0, H = 0;
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 1.85);
+  const w = Math.max(2, Math.round(cv.clientWidth * dpr));
+  const h = Math.max(2, Math.round(cv.clientHeight * dpr));
+  if (w === W && h === H) return;
+  W = w; H = h; cv.width = W; cv.height = H;
+  if (T) [T.scene, T.a1, T.a2, T.b1, T.b2].forEach(t => { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); });
+  const q = (v, d) => Math.max(2, Math.round(v / d));
+  T = { scene: mkTarget(W, H), a1: mkTarget(q(W,4), q(H,4)), a2: mkTarget(q(W,4), q(H,4)),
+        b1: mkTarget(q(W,8), q(H,8)), b2: mkTarget(q(W,8), q(H,8)) };
+}
+function perspective(fovy, aspect, near, far) {
+  const f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+  return [f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0];
+}
+function mul(a, b) {
+  const o = new Array(16);
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++)
+    o[c*4+r] = a[r]*b[c*4] + a[4+r]*b[c*4+1] + a[8+r]*b[c*4+2] + a[12+r]*b[c*4+3];
+  return o;
+}
+
+/* ═════════════ точки садятся на поверхность формулы ═════════════ */
+const PIVOT = [0, -0.42, 0];
+let headBuf = {}, wispBuf = {}, wispCount = 0, N = 0;
+const POS = [], NOR = [], REG = [], SEED = [];
+
+function buildChunk(i0, i1, rings) {                 // кольца лучей, порция за кадр
+  const n3 = [0, 0, 0];
+  for (let i = i0; i < i1; i++) {
+    const th = Math.PI * (i + 0.5) / rings, st = Math.sin(th), ct = Math.cos(th);
+    const count = Math.max(8, Math.round(2.1 * rings * st));
+    for (let j = 0; j < count; j++) {
+      const ph = 2 * Math.PI * (j + (i & 1) * 0.5) / count;
+      const dx = st * Math.sin(ph), dy = ct, dz = st * Math.cos(ph), R = 2.4;
+      const t = HEAD.trace(dx * R, dy * R, dz * R, -dx, -dy, -dz);
+      if (t < 0) continue;
+      const x = dx * (R - t), y = dy * (R - t), z = dz * (R - t);
+      HEAD.normalAt(x, y, z, n3);
+      POS.push(x, y, z); NOR.push(n3[0], n3[1], n3[2]);
+      REG.push(HEAD.classify(x, y, z)); SEED.push(Math.random());
+    }
+  }
+}
+function buildRows(k0, k1) {                          // шея и плечи
+  const n3 = [0, 0, 0], COLS = 132;
+  for (let k = k0; k < k1; k++) {
+    const y = -0.36 - k * 0.0080;
+    for (let j = 0; j < COLS; j++) {
+      const ph = 2 * Math.PI * (j / COLS + k * 0.31);
+      const ex = Math.sin(ph), ez = Math.cos(ph), R = 1.7;
+      const t = HEAD.trace(ex * R, y, ez * R, -ex, 0, -ez);
+      if (t < 0) continue;
+      const x = ex * (R - t), z = ez * (R - t);
+      HEAD.normalAt(x, y, z, n3);
+      POS.push(x, y, z); NOR.push(n3[0], n3[1], n3[2]);
+      REG.push(HEAD.classify(x, y, z)); SEED.push(Math.random());
+    }
+  }
+}
+
+function upload() {
+  N = REG.length;
+  const idx = new Uint32Array(N);
+  for (let i = 0; i < N; i++) idx[i] = i;
+  for (let i = N - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; const t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
+  const P = new Float32Array(N * 3), Nr = new Float32Array(N * 3), Rg = new Float32Array(N), Sd = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const s = idx[i];
+    P[i*3] = POS[s*3]; P[i*3+1] = POS[s*3+1]; P[i*3+2] = POS[s*3+2];
+    Nr[i*3] = NOR[s*3]; Nr[i*3+1] = NOR[s*3+1]; Nr[i*3+2] = NOR[s*3+2];
+    Rg[i] = REG[s]; Sd[i] = SEED[s];
+  }
+  const mk = d => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, d, gl.STATIC_DRAW); return b; };
+  headBuf = { pos: mk(P), nor: mk(Nr), reg: mk(Rg), seed: mk(Sd) };
+
+  const WN = 13000, WP = new Float32Array(WN*3), WD = new Float32Array(WN*3), WM = new Float32Array(WN*2);
+  const wind = [-0.34, 0.66, -0.26];
+  let k = 0, guard = 0;
+  while (k < WN && guard < WN * 80) {
+    guard++;
+    const s = (Math.random() * N) | 0;
+    if (Rg[s] !== 1) continue;                        // пыль срывается с волос
+    const y = P[s*3+1];
+    if (y < 0.10) continue;
+    if (Math.random() > (y - 0.10) / 0.42) continue;
+    WP[k*3] = P[s*3]; WP[k*3+1] = y; WP[k*3+2] = P[s*3+2];
+    let dx = Nr[s*3]*1.15 + wind[0] + (Math.random()-0.5)*0.36;
+    let dy = Nr[s*3+1]*0.55 + wind[1] + (Math.random()-0.5)*0.30;
+    let dz = Nr[s*3+2]*1.15 + wind[2] + (Math.random()-0.5)*0.36;
+    const l = Math.hypot(dx, dy, dz) || 1;
+    WD[k*3] = dx/l; WD[k*3+1] = dy/l; WD[k*3+2] = dz/l;
+    WM[k*2] = Math.random(); WM[k*2+1] = 0.10 + Math.random()*0.28;
+    k++;
+  }
+  wispCount = k;
+  const mkf = d => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, d, gl.STATIC_DRAW); return b; };
+  wispBuf = { pos: mkf(WP), dir: mkf(WD), met: mkf(WM) };
+  cnt.textContent = N.toLocaleString("ru-RU");
+}
+
+function attr(p, name, buf, size, type, norm) {
+  const loc = p.a[name]; if (loc === undefined || loc < 0) return;
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, size, type, norm, 0, 0);
+}
+function off(p) { Object.values(p.a).forEach(l => { if (l >= 0) gl.disableVertexAttribArray(l); }); }
+function drawQuad(p) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(p.a.aXy);
+  gl.vertexAttribPointer(p.a.aXy, 2, gl.FLOAT, false, 0, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.disableVertexAttribArray(p.a.aXy);
+}
+function bindTarget(t) {
+  gl.bindFramebuffer(gl.FRAMEBUFFER, t ? t.fb : null);
+  gl.viewport(0, 0, t ? t.w : W, t ? t.h : H);
+}
+
+/* ═════════════ кадр ═════════════ */
+const LOOP = 24.0, FOV = 0.52, CENTER_Y = -0.17;
+let amp = 1, density = 1, wind = 1, tAnim = 0, last = performance.now(), frames = 0, fpsAcc = 0;
+let dragX = 0, dragY = 0, dragging = false, px = 0, py = 0, idle = 0;
+const fpsOut = document.getElementById("fps"), hint = document.getElementById("hint");
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!reduced) tAnim += dt;
+  idle += dt;
+  dragX *= Math.pow(0.12, dt); dragY *= Math.pow(0.12, dt);   // рука отпустила — возвращается к петле
+  resize();
+
+  const ph = 2 * Math.PI * (tAnim % LOOP) / LOOP;
+  const k = reduced ? 0 : amp;
+  const yaw   = k * (0.62 * Math.sin(ph) + 0.11 * Math.sin(3 * ph + 0.7)) + dragX;
+  const pitch = k * (0.10 * Math.sin(2 * ph + 1.1) - 0.03) + dragY;
+  const roll  = k * 0.045 * Math.sin(ph + 2.1);
+
+  const aspect = W / H;
+  const t = Math.tan(FOV / 2);
+  const dist = (aspect < 1.25 ? Math.pow(1.25 / aspect, 0.45) : 1) * 3.10;
+  const view = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0, -CENTER_Y, -dist, 1];
+  const VP = mul(perspective(FOV, aspect, 0.05, 20), view);
+  const scale = 0.0088 * H;
+
+  bindTarget(T.scene);
+  gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+
+  gl.useProgram(pHead.p);
+  gl.uniformMatrix4fv(pHead.u.uVP, false, new Float32Array(VP));
+  gl.uniform3f(pHead.u.uAng, yaw, pitch, roll);
+  gl.uniform3fv(pHead.u.uPivot, PIVOT);
+  gl.uniform3f(pHead.u.uCam, 0, CENTER_Y, dist);
+  gl.uniform1f(pHead.u.uTime, tAnim);
+  gl.uniform1f(pHead.u.uScale, scale);
+  gl.uniform1f(pHead.u.uCut, density);
+  gl.uniform1f(pHead.u.uLoop, LOOP);
+  gl.uniform1f(pHead.u.uNeck, -0.30);
+  attr(pHead, "aPos", headBuf.pos, 3, gl.FLOAT, false);
+  attr(pHead, "aNor", headBuf.nor, 3, gl.FLOAT, false);
+  attr(pHead, "aReg", headBuf.reg, 1, gl.FLOAT, false);
+  attr(pHead, "aSeed", headBuf.seed, 1, gl.FLOAT, false);
+  gl.drawArrays(gl.POINTS, 0, N);
+  off(pHead);
+
+  gl.useProgram(pWisp.p);
+  gl.uniformMatrix4fv(pWisp.u.uVP, false, new Float32Array(VP));
+  gl.uniform3f(pWisp.u.uAng, yaw, pitch, roll);
+  gl.uniform3fv(pWisp.u.uPivot, PIVOT);
+  gl.uniform1f(pWisp.u.uTime, tAnim);
+  gl.uniform1f(pWisp.u.uScale, scale);
+  gl.uniform1f(pWisp.u.uWind, wind);
+  attr(pWisp, "aPos", wispBuf.pos, 3, gl.FLOAT, false);
+  attr(pWisp, "aDir", wispBuf.dir, 3, gl.FLOAT, false);
+  attr(pWisp, "aMet", wispBuf.met, 2, gl.FLOAT, false);
+  gl.drawArrays(gl.POINTS, 0, Math.round(wispCount * Math.max(0.3, density)));
+  off(pWisp);
+  gl.disable(gl.BLEND);
+
+  gl.useProgram(pBright.p);
+  gl.uniform1i(pBright.u.uTex, 0); gl.activeTexture(gl.TEXTURE0);
+  bindTarget(T.a1); gl.bindTexture(gl.TEXTURE_2D, T.scene.tex);
+  gl.uniform2f(pBright.u.uTexel, 1/W, 1/H); gl.uniform1f(pBright.u.uThresh, 0.32);
+  drawQuad(pBright);
+  gl.useProgram(pBlur.p); gl.uniform1i(pBlur.u.uTex, 0);
+  const blur = (src, dst, dx, dy) => { bindTarget(dst); gl.bindTexture(gl.TEXTURE_2D, src.tex);
+    gl.uniform2f(pBlur.u.uDir, dx/dst.w, dy/dst.h); drawQuad(pBlur); };
+  blur(T.a1, T.a2, 1, 0); blur(T.a2, T.a1, 0, 1);
+  gl.useProgram(pBright.p);
+  bindTarget(T.b1); gl.bindTexture(gl.TEXTURE_2D, T.a1.tex);
+  gl.uniform2f(pBright.u.uTexel, 1/T.a1.w, 1/T.a1.h); gl.uniform1f(pBright.u.uThresh, 0.0);
+  drawQuad(pBright);
+  gl.useProgram(pBlur.p);
+  blur(T.b1, T.b2, 1.6, 0); blur(T.b2, T.b1, 0, 1.6);
+
+  bindTarget(null);
+  gl.useProgram(pComp.p);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, T.scene.tex); gl.uniform1i(pComp.u.uScene, 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, T.a1.tex);    gl.uniform1i(pComp.u.uB1, 1);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, T.b1.tex);    gl.uniform1i(pComp.u.uB2, 2);
+  drawQuad(pComp);
+
+  frames++; fpsAcc += dt;
+  if (fpsAcc > 1) {
+    fpsOut.textContent = Math.round(frames / fpsAcc) + " кадров/с · петля " + LOOP.toFixed(0) + " с";
+    frames = 0; fpsAcc = 0;
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ═════════════ управление ═════════════ */
+const ampEl = document.getElementById("amp"), ampV = document.getElementById("ampv");
+const den = document.getElementById("den"), denv = document.getElementById("denv");
+const wnd = document.getElementById("wnd"), wndv = document.getElementById("wndv");
+ampEl.addEventListener("input", () => { amp = ampEl.value/100; ampV.textContent = amp.toFixed(1).replace(".", ",") + "×"; });
+den.addEventListener("input", () => { density = den.value/100; denv.textContent = den.value + "%"; });
+wnd.addEventListener("click", () => {
+  const on = wnd.getAttribute("aria-checked") !== "true";
+  wnd.setAttribute("aria-checked", String(on));
+  wndv.textContent = on ? "вкл" : "выкл";
+  wind = on ? 1 : 0;
+});
+cv.addEventListener("pointerdown", e => { dragging = true; px = e.clientX; py = e.clientY; cv.setPointerCapture(e.pointerId); hint.classList.add("off"); });
+cv.addEventListener("pointerup", () => { dragging = false; });
+cv.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  dragX += (e.clientX - px) * 0.006;
+  dragY += (e.clientY - py) * 0.004;
+  dragX = Math.max(-1.5, Math.min(1.5, dragX));
+  dragY = Math.max(-0.5, Math.min(0.5, dragY));
+  px = e.clientX; py = e.clientY;
+});
+if (reduced) { ampEl.value = 0; amp = 0; ampV.textContent = "0,0×"; }
+
+const RINGS = 210, ROWS = 118;
+let ring = 0, row = 0;
+function step() {
+  const t0 = performance.now();
+  while (performance.now() - t0 < 26) {
+    if (ring < RINGS) buildChunk(ring, Math.min(ring + 4, RINGS), RINGS), ring += 4;
+    else if (row < ROWS) buildRows(row, Math.min(row + 6, ROWS)), row += 6;
+    else break;
+  }
+  bar.style.width = ((ring + row) / (RINGS + ROWS) * 100).toFixed(0) + "%";
+  if (ring < RINGS || row < ROWS) { requestAnimationFrame(step); return; }
+  upload();
+  if (innerWidth < 760) { density = 0.65; den.value = 65; denv.textContent = "65%"; }
+  resize();
+  veil.classList.add("off");
+  cv.classList.add("on");
+  setTimeout(() => hint.classList.add("off"), 9000);
+  last = performance.now();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(step);
+})();
+</script>
+
+</head>
+<body>
+</body>
+</html>
